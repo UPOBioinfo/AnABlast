@@ -1074,16 +1074,20 @@ sub sensitivity_specificity {
 	# ejemplo: &sensitivity_specificity(<ref_gff3> <ref_peaks> <min high>)
 	################################################################################
 
-	my ($ref_gff, $ref_peaks, $min_top) = @_;
+	my ($ref_gff, $ref_peaks, $min_top, $seq_ref) = @_;
 	print STDERR "\nSensitivity and Specificity (min. top: $min_top)\n";
 	
+	my %chrom = %{$seq_ref};
 	my %peaks = %{$ref_peaks};
 	my %gff = %{$ref_gff};
 
 	my %cds;
+	my %cds_p;
 	my %peak_cov;
+	my %peaks_p;
 	my %result;
-	#open FILE, ">uniq_cds_$min_top.txt" or die $!;
+	
+	# Extraer los CDS a partir del gff indexado
 	foreach my $k (keys %gff) {
 		next if ($k eq "sources" or $k eq "total");
 		#print "$gff{$k}\n";
@@ -1091,24 +1095,28 @@ sub sensitivity_specificity {
 			foreach my $k3 (keys %{$gff{$k}{$k2}}) {
 				foreach my $k4 (keys %{$gff{$k}{$k2}{$k3}}) {
 					$cds{"$k:$gff{$k}{$k2}{$k3}{$k4}{start}..$gff{$k}{$k2}{$k3}{$k4}{end}"} = 2;
-					#print FILE "$k:$gff{$k}{$k2}{$k3}{$k4}{start}..$gff{$k}{$k2}{$k3}{$k4}{end}\n";
+					for my $n ($gff{$k}{$k2}{$k3}{$k4}{start}..$gff{$k}{$k2}{$k3}{$k4}{end}) {
+						$cds_p{$k}{$n} = 1;
+					}
 				}
 			}
 		}
 	}
-	#close FILE or die $!;
+
 	$result{total_cds} = keys %cds;
 	print STDERR "Total uniq CDS = $result{total_cds}\n";
 
+	# Recorre los picos
 	foreach my $key (keys %peaks) {
 		#print STDERR "$peaks{$key}{position}\t";
 
 		next if ($peaks{$key}{top} < $min_top);
 		$result{total}++;
 		
+		#Calcula el rango para cada pico
 		my $start_range = 10000 * (int($peaks{$key}{start}/10000) + 1);
 		my $end_range = 10000 * (int($peaks{$key}{end}/10000) + 1);
-		#print STDERR "($start_range..$end_range)\n";
+		
 		my $p_chrom = $peaks{$key}{chrom};
 		my $p_strand = $peaks{$key}{strand};
 		my $p_start = $peaks{$key}{start};
@@ -1117,8 +1125,7 @@ sub sensitivity_specificity {
 		
 
 		for (my $i = $start_range; $i <= $end_range; $i += 10000) {
-			#print STDERR "\t$i\n";
-			#print STDERR "\tstrand => $p_strand\n";
+			# Recorre los cds de un rango determinado de la cadena fordware del pico
 			foreach my $key2 (keys %{$gff{$p_chrom}{$p_strand}{$i}}) {
 
 				my $g_start = $gff{$p_chrom}{$p_strand}{$i}{$key2}{start};
@@ -1153,8 +1160,7 @@ sub sensitivity_specificity {
 				$rev_strand = "+";
 			}
 
-			#print STDERR "\tstrand => $rev_strand\n";
-
+			# Recorre los cds de un rando determinado en la cadena reversa del pico
 			foreach my $key2 (keys %{$gff{$p_chrom}{$rev_strand}{$i}}) {
 				my $g_start = $gff{$p_chrom}{$rev_strand}{$i}{$key2}{start};
 				my $g_end = $gff{$p_chrom}{$rev_strand}{$i}{$key2}{end};
@@ -1181,6 +1187,11 @@ sub sensitivity_specificity {
 					$cds{"$p_chrom:$g_start..$g_end"} = 1;
 				}
 			}
+			if (!$peak_cov{$key}) {
+				foreach my $n ($p_start..$p_end) {
+					$peaks_p{$p_chrom}{$n} = 1;
+				}
+			}
 		}
 	}
 
@@ -1190,7 +1201,7 @@ sub sensitivity_specificity {
 	foreach my $key2 (keys %peaks) {
 		next if ($peaks{$key2}{top} < $min_top);
 		if ($peak_cov{$key2}) {
-			$result{tp_peaks}++;
+			#$result{tp_peaks}++;
 		}
 		else {
 			$result{fp}++;
@@ -1214,8 +1225,57 @@ sub sensitivity_specificity {
 	$result{sensitivity} = $result{tp}/($result{tp} + $result{fn});
 	$result{specificity} = $result{tp}/($result{tp} + $result{fp});
 
+	%cds = ();
+	%peak_cov = ();
+	%peaks = ();
+	%gff = ();
+
+	###########################################
+	my %no_cds;
+	foreach my $key (sort keys %chrom) {
+		print "Parsing chrom: $key\n";
+		for my $n (1..$chrom{$key}{length}) {
+			if ($cds_p{$key}{$n}) {
+				$no_cds{$key}{$n} = 0;
+			}
+			else {
+				$no_cds{$key}{$n} = 1;
+				if ($peaks_p{$key}{$n}) {
+					$no_cds{$key}{$n} = 2;
+				}
+			}
+			#print "$key\t$n\t$no_cds{$key}{$n}\n";
+		}
+	}
+
+	my $c;
+	my $f = 0;
+	my %true_n;
+	open FILE, ">true_netative_$min_top.tsv" or die $!;
+	foreach my $key (sort keys %no_cds) {
+		for my $n (1..$chrom{$key}{length}) {
+			if ($no_cds{$key}{$n} == 1 and $f == 0) {
+				$f = 1;
+				$c++;
+				$true_n{$c} = "$key:$n.."
+			}
+			if ($no_cds{$key}{$n} != 1 and $f == 1) {
+				$f = 0;
+				$true_n{$c} .= $n;
+				print FILE "$c\t$true_n{$c}\n";
+			}
+		}
+	}
+	close FILE or die $!;
+	my $tn = $c;
+
+	$result{tn} = $tn;
+	################################################
+
+
 	return %result;
 }
+
 
 ##############################################################################
 ##############################################################################
@@ -1250,7 +1310,7 @@ my $seq_ref = &parse_fasta($fasta, $workdir);
 
 # Divide y filtra el blast inicial según los parámetros establecidos y
 # devuelve las rutas a los diferentes blast
-my %blast_path = &bitscore_filter_frame_split($blast, $workdir, $min_bitscore);
+#my %blast_path = &bitscore_filter_frame_split($blast, $workdir, $min_bitscore);
 #my %blast_path = (
 #	"1" => "$workdir/frame1.blast",
 #	"2" => "$workdir/frame2.blast",
@@ -1260,52 +1320,60 @@ my %blast_path = &bitscore_filter_frame_split($blast, $workdir, $min_bitscore);
 #	"-3" => "$workdir/frame-3.blast",
 #	);
 
+
 # Recorre los blast convirtiendolos en wig y bigwig y devuelve la ruta a los wig
-my @wig_path;
+#my @wig_path;
 #my @wig_path = ("$workdir/frame1.wig", "$workdir/frame2.wig", "$workdir/frame3.wig", "$workdir/frame-1.wig", "$workdir/frame-2.wig", "$workdir/frame-3.wig");
 
-foreach my $key (sort keys %blast_path) {
-	push @wig_path, &frame_to_wig_and_bigwig($key, $blast_path{$key}, $workdir);
-}
+#foreach my $key (sort keys %blast_path) {
+#	push @wig_path, &frame_to_wig_and_bigwig($key, $blast_path{$key}, $workdir);
+#}
+
 
 # Recorre los wig extrayendo los picos de los diferentes frames
-my %peaks;
-foreach (@wig_path) {
-	my $ref_peaks = &extract_peaks ($_, $seq_ref);
-	%peaks = (%peaks, %{$ref_peaks});
-}
+#my %peaks;
+#foreach (@wig_path) {
+#	my $ref_peaks = &extract_peaks ($_, $seq_ref);
+#	%peaks = (%peaks, %{$ref_peaks});
+#}
 
-#my $ref_peaks = &tsv_to_peaks("$workdir/peaks_up70.tsv");
-#my %peaks = %{$ref_peaks};
-&peaks_to_tsv(\%peaks, "$workdir/peaks.tsv");
-&peaks_to_gff3(\%peaks, "$workdir/peaks.gff");
-&peaks_to_fasta(\%peaks, "$workdir/peaks.faa");
+# Mete en memoria los picos de un fichero tsv que le indiques
+my $ref_peaks = &tsv_to_peaks("$workdir/peaks.tsv");
+my %peaks = %{$ref_peaks};
+
+
+#&peaks_to_tsv(\%peaks, "$workdir/peaks.tsv");
+#&peaks_to_gff3(\%peaks, "$workdir/peaks.gff");
+#&peaks_to_fasta(\%peaks, "$workdir/peaks.faa");
+
 
 # busca los ORF y los imprime en un fichero gff
-my %orf = %{&peaks_elong_orf_search(\%peaks, $seq_ref)};
-&orf_to_gff3(\%orf, "$workdir/orf.gff");
+#my %orf = %{&peaks_elong_orf_search(\%peaks, $seq_ref)};
+#&orf_to_gff3(\%orf, "$workdir/orf.gff");
+
 
 # Ejecuta el anotador Sma3s
 #&sma3s($workdir, "/home/databases/sma3s/swissprot_2017_7/uniprot_sprot.dat");
 
-# Indexa el gff que le indiques y lo compara con los picos para ver cual es
-# la covertura de los picos con respecto a los item del gff. Descomentar para
-# activar
-#my $ref_gff = &gff_index($gff);
 
+# Indexa el gff que le indiques
+my $ref_gff = &gff_index($gff);
+
+
+# Compara con los picos para ver cual es la covertura de los picos con 
+# respecto a los item del gff
 #&peaks_vs_gff ($ref_gff, \%peaks, $workdir);
 
-#open STAT, ">anablast_stat.tsv" or die $!;
-#print STAT "#Min_bitscore\tTotal_peaks\tTotal_CDS\tMin_Top\tTP\tFP\tFN\tSensitivity\tSpecificity\n";
-#my %stat;
-#for my $top (20..300) {
-#	%stat = &sensitivity_specificity($ref_gff, \%peaks, $top);
-#	print STAT "$min_bitscore\t$stat{total}\t$stat{total_cds}\t$top\t$stat{tp}\t$stat{fp}\t$stat{fn}\t$stat{sensitivity}\t$stat{specificity}\n";
-#}
 
-#print STAT "TP: $stat{tp}\nFP: $stat{fp}\nFN: $stat{fn}\n";
-#print STAT "Sensitivity: $stat{sensitivity}\n";
-#print STAT "Specificity: $stat{specificity}\n";
-#close STAT or die $!;
+# Genera un fichero con las estadísticas para cada altura de pico con respecto
+# a un gff con los CDS oficiales
+open STAT, ">anablast_stat.tsv" or die $!;
+print STAT "#Min_bitscore\tTotal_peaks\tTotal_CDS\tMin_Top\tTP\tTN\tFP\tFN\tSensitivity\tSpecificity\n";
+my %stat;
+for my $top (20..300) {
+	%stat = &sensitivity_specificity($ref_gff, \%peaks, $top, $seq_ref);
+	print STAT "$min_bitscore\t$stat{total}\t$stat{total_cds}\t$top\t$stat{tp}\t$stat{tn}\t$stat{fp}\t$stat{fn}\t$stat{sensitivity}\t$stat{specificity}\n";
+}
+close STAT or die $!;
 
 exit;
