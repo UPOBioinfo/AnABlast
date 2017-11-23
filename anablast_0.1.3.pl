@@ -431,7 +431,7 @@ sub extract_peaks {
 			$start = $1;
 			$f = 1;
 		}
-		if($2 >= 70){ #Altura mínima del pico para pasarlo al gff
+		if($2 >= 20){ #Altura mínima para considerarlo un pico
 			$f2 = 1;
 			if($2 > $top){ 
 				$top = $2;
@@ -1197,6 +1197,7 @@ sub sensitivity_specificity {
 
 	print STDERR "Total peaks >= $min_top = $result{total}\n";
 
+	$result{fp} = 0;
 	open FILE, ">peaks_without_cds_$min_top.txt" or die $!;
 	foreach my $key2 (keys %peaks) {
 		next if ($peaks{$key2}{top} < $min_top);
@@ -1210,6 +1211,8 @@ sub sensitivity_specificity {
 	}
 	close FILE or die $!;
 	
+	$result{tp} = 0;
+	$result{fn} = 0;
 	open FILE, ">cds_without_peak_$min_top.txt" or die $!;
 	foreach my $key3 (keys %cds) {
 		if ($cds{$key3} == 1) {
@@ -1251,7 +1254,7 @@ sub sensitivity_specificity {
 	my $c;
 	my $f = 0;
 	my %true_n;
-	open FILE, ">true_netative_$min_top.tsv" or die $!;
+	open FILE, ">true_netative_$min_top.txt" or die $!;
 	foreach my $key (sort keys %no_cds) {
 		for my $n (1..$chrom{$key}{length}) {
 			if ($no_cds{$key}{$n} == 1 and $f == 0) {
@@ -1259,7 +1262,7 @@ sub sensitivity_specificity {
 				$c++;
 				$true_n{$c} = "$key:$n.."
 			}
-			if ($no_cds{$key}{$n} != 1 and $f == 1) {
+			if (($no_cds{$key}{$n} != 1 and $f == 1) or ($n == $chrom{$key}{length} and $f == 1)) {
 				$f = 0;
 				$true_n{$c} .= $n;
 				print FILE "$c\t$true_n{$c}\n";
@@ -1310,40 +1313,51 @@ my $seq_ref = &parse_fasta($fasta, $workdir);
 
 # Divide y filtra el blast inicial según los parámetros establecidos y
 # devuelve las rutas a los diferentes blast
-#my %blast_path = &bitscore_filter_frame_split($blast, $workdir, $min_bitscore);
-#my %blast_path = (
-#	"1" => "$workdir/frame1.blast",
-#	"2" => "$workdir/frame2.blast",
-#	"3" => "$workdir/frame3.blast",
-#	"-1" => "$workdir/frame-1.blast",
-#	"-2" => "$workdir/frame-2.blast",
-#	"-3" => "$workdir/frame-3.blast",
-#	);
+my %blast_path = &bitscore_filter_frame_split($blast, $workdir, $min_bitscore);
 
+
+# Obtiene los path de los blast parciales de los ficheros que le indiques
+# my %blast_path = (
+# 	"1" => "$workdir/frame1.blast",
+# 	"2" => "$workdir/frame2.blast",
+# 	"3" => "$workdir/frame3.blast",
+# 	"-1" => "$workdir/frame-1.blast",
+# 	"-2" => "$workdir/frame-2.blast",
+# 	"-3" => "$workdir/frame-3.blast",
+# 	);
+
+
+# Obtiene los path de los wig de los ficheros que le indiques
+# my @wig_path = (
+# "$workdir/frame1.wig",
+# "$workdir/frame2.wig",
+# "$workdir/frame3.wig",
+# "$workdir/frame-1.wig",
+# "$workdir/frame-2.wig",
+# "$workdir/frame-3.wig",
+# );
 
 # Recorre los blast convirtiendolos en wig y bigwig y devuelve la ruta a los wig
-#my @wig_path;
-#my @wig_path = ("$workdir/frame1.wig", "$workdir/frame2.wig", "$workdir/frame3.wig", "$workdir/frame-1.wig", "$workdir/frame-2.wig", "$workdir/frame-3.wig");
-
-#foreach my $key (sort keys %blast_path) {
-#	push @wig_path, &frame_to_wig_and_bigwig($key, $blast_path{$key}, $workdir);
-#}
+my @wig_path;
+foreach my $key (sort keys %blast_path) {
+	push @wig_path, &frame_to_wig_and_bigwig($key, $blast_path{$key}, $workdir);
+}
 
 
 # Recorre los wig extrayendo los picos de los diferentes frames
-#my %peaks;
-#foreach (@wig_path) {
-#	my $ref_peaks = &extract_peaks ($_, $seq_ref);
-#	%peaks = (%peaks, %{$ref_peaks});
-#}
+my %peaks;
+foreach (@wig_path) {
+	my $ref_peaks = &extract_peaks ($_, $seq_ref);
+	%peaks = (%peaks, %{$ref_peaks});
+}
 
 # Mete en memoria los picos de un fichero tsv que le indiques
-my $ref_peaks = &tsv_to_peaks("$workdir/peaks.tsv");
-my %peaks = %{$ref_peaks};
+# my $ref_peaks = &tsv_to_peaks("$workdir/peaks.tsv");
+# my %peaks = %{$ref_peaks};
 
 
 #&peaks_to_tsv(\%peaks, "$workdir/peaks.tsv");
-#&peaks_to_gff3(\%peaks, "$workdir/peaks.gff");
+&peaks_to_gff3(\%peaks, "$workdir/peaks.gff");
 #&peaks_to_fasta(\%peaks, "$workdir/peaks.faa");
 
 
