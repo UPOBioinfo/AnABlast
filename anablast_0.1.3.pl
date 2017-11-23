@@ -1273,6 +1273,9 @@ sub sensitivity_specificity {
 	my $tn = $c;
 
 	$result{tn} = $tn;
+	$result{acp} = 0.25*($result{tp}/($result{tp}+$result{fn})+$result{tp}/($result{tp}+$result{fp})+$result{tn}/($result{tn}+$result{fp})+$result{tn}/($result{tn}+$result{fn}));
+	$result{ca} = ($result{acp} - 0.5) * 2;
+	 
 	################################################
 
 
@@ -1382,11 +1385,11 @@ my $ref_gff = &gff_index($gff);
 # Genera un fichero con las estadísticas para cada altura de pico con respecto
 # a un gff con los CDS oficiales
 open STAT, ">anablast_stat.tsv" or die $!;
-print STAT "#Min_bitscore\tTotal_peaks\tTotal_CDS\tMin_Top\tTP\tTN\tFP\tFN\tSensitivity\tSpecificity\n";
+print STAT "#Min_bitscore\tTotal_peaks\tTotal_CDS\tMin_Top\tTP\tTN\tFP\tFN\tSensitivity\tSpecificity\tACP\tAC\n";
 my %stat;
 for my $top (20..300) {
 	%stat = &sensitivity_specificity($ref_gff, \%peaks, $top, $seq_ref);
-	print STAT "$min_bitscore\t$stat{total}\t$stat{total_cds}\t$top\t$stat{tp}\t$stat{tn}\t$stat{fp}\t$stat{fn}\t$stat{sensitivity}\t$stat{specificity}\n";
+	print STAT "$min_bitscore\t$stat{total}\t$stat{total_cds}\t$top\t$stat{tp}\t$stat{tn}\t$stat{fp}\t$stat{fn}\t$stat{sensitivity}\t$stat{specificity}\t$stat{acp}\t$stat{ca}\n";
 }
 close STAT or die $!;
 
