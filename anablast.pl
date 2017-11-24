@@ -1198,7 +1198,7 @@ sub sensitivity_specificity {
 	print STDERR "Total peaks >= $min_top = $result{total}\n";
 
 	$result{fp} = 0;
-	open FILE, ">peaks_without_cds_$min_top.txt" or die $!;
+	#open FILE, ">peaks_without_cds_$min_top.txt" or die $!;
 	foreach my $key2 (keys %peaks) {
 		next if ($peaks{$key2}{top} < $min_top);
 		if ($peak_cov{$key2}) {
@@ -1206,24 +1206,24 @@ sub sensitivity_specificity {
 		}
 		else {
 			$result{fp}++;
-			print FILE "$peaks{$key2}{chrom}:$peaks{$key2}{start}..$peaks{$key2}{end}\n";
+	#		print FILE "$peaks{$key2}{chrom}:$peaks{$key2}{start}..$peaks{$key2}{end}\n";
 		}
 	}
-	close FILE or die $!;
+	#close FILE or die $!;
 	
 	$result{tp} = 0;
 	$result{fn} = 0;
-	open FILE, ">cds_without_peak_$min_top.txt" or die $!;
+	#open FILE, ">cds_without_peak_$min_top.txt" or die $!;
 	foreach my $key3 (keys %cds) {
 		if ($cds{$key3} == 1) {
 			$result{tp}++;
 		}
 		else {
-			print FILE "$key3\n";
+	#		print FILE "$key3\n";
 			$result{fn}++;
 		}
 	}
-	close FILE or die $!;
+	#close FILE or die $!;
 
 	$result{sensitivity} = $result{tp}/($result{tp} + $result{fn});
 	$result{specificity} = $result{tp}/($result{tp} + $result{fp});
@@ -1254,7 +1254,7 @@ sub sensitivity_specificity {
 	my $c;
 	my $f = 0;
 	my %true_n;
-	open FILE, ">true_netative_$min_top.txt" or die $!;
+	#open FILE, ">true_netative_$min_top.txt" or die $!;
 	foreach my $key (sort keys %no_cds) {
 		for my $n (1..$chrom{$key}{length}) {
 			if ($no_cds{$key}{$n} == 1 and $f == 0) {
@@ -1265,11 +1265,11 @@ sub sensitivity_specificity {
 			if (($no_cds{$key}{$n} != 1 and $f == 1) or ($n == $chrom{$key}{length} and $f == 1)) {
 				$f = 0;
 				$true_n{$c} .= $n;
-				print FILE "$c\t$true_n{$c}\n";
+	#			print FILE "$c\t$true_n{$c}\n";
 			}
 		}
 	}
-	close FILE or die $!;
+	#close FILE or die $!;
 	my $tn = $c;
 
 	$result{tn} = $tn;
