@@ -1234,47 +1234,47 @@ sub sensitivity_specificity {
 	%gff = ();
 
 	###########################################
-	my %no_cds;
-	foreach my $key (sort keys %chrom) {
-		print "Parsing chrom: $key\n";
-		for my $n (1..$chrom{$key}{length}) {
-			if ($cds_p{$key}{$n}) {
-				$no_cds{$key}{$n} = 0;
-			}
-			else {
-				$no_cds{$key}{$n} = 1;
-				if ($peaks_p{$key}{$n}) {
-					$no_cds{$key}{$n} = 2;
-				}
-			}
-			#print "$key\t$n\t$no_cds{$key}{$n}\n";
-		}
-	}
+	# my %no_cds;
+	# foreach my $key (sort keys %chrom) {
+	# 	print "Parsing chrom: $key\n";
+	# 	for my $n (1..$chrom{$key}{length}) {
+	# 		if ($cds_p{$key}{$n}) {
+	# 			$no_cds{$key}{$n} = 0;
+	# 		}
+	# 		else {
+	# 			$no_cds{$key}{$n} = 1;
+	# 			if ($peaks_p{$key}{$n}) {
+	# 				$no_cds{$key}{$n} = 2;
+	# 			}
+	# 		}
+	# 		#print "$key\t$n\t$no_cds{$key}{$n}\n";
+	# 	}
+	# }
 
-	my $c;
-	my $f = 0;
-	my %true_n;
-	#open FILE, ">true_netative_$min_top.txt" or die $!;
-	foreach my $key (sort keys %no_cds) {
-		for my $n (1..$chrom{$key}{length}) {
-			if ($no_cds{$key}{$n} == 1 and $f == 0) {
-				$f = 1;
-				$c++;
-				$true_n{$c} = "$key:$n.."
-			}
-			if (($no_cds{$key}{$n} != 1 and $f == 1) or ($n == $chrom{$key}{length} and $f == 1)) {
-				$f = 0;
-				$true_n{$c} .= $n;
-	#			print FILE "$c\t$true_n{$c}\n";
-			}
-		}
-	}
-	#close FILE or die $!;
-	my $tn = $c;
+	# my $c;
+	# my $f = 0;
+	# my %true_n;
+	# #open FILE, ">true_netative_$min_top.txt" or die $!;
+	# foreach my $key (sort keys %no_cds) {
+	# 	for my $n (1..$chrom{$key}{length}) {
+	# 		if ($no_cds{$key}{$n} == 1 and $f == 0) {
+	# 			$f = 1;
+	# 			$c++;
+	# 			$true_n{$c} = "$key:$n.."
+	# 		}
+	# 		if (($no_cds{$key}{$n} != 1 and $f == 1) or ($n == $chrom{$key}{length} and $f == 1)) {
+	# 			$f = 0;
+	# 			$true_n{$c} .= $n;
+	# #			print FILE "$c\t$true_n{$c}\n";
+	# 		}
+	# 	}
+	# }
+	# #close FILE or die $!;
+	# my $tn = $c;
 
-	$result{tn} = $tn;
-	$result{acp} = 0.25*($result{tp}/($result{tp}+$result{fn})+$result{tp}/($result{tp}+$result{fp})+$result{tn}/($result{tn}+$result{fp})+$result{tn}/($result{tn}+$result{fn}));
-	$result{ca} = ($result{acp} - 0.5) * 2;
+	# $result{tn} = $tn;
+	# $result{acp} = 0.25*($result{tp}/($result{tp}+$result{fn})+$result{tp}/($result{tp}+$result{fp})+$result{tn}/($result{tn}+$result{fp})+$result{tn}/($result{tn}+$result{fn}));
+	# $result{ca} = ($result{acp} - 0.5) * 2;
 	 
 	################################################
 
@@ -1316,7 +1316,7 @@ my $seq_ref = &parse_fasta($fasta, $workdir);
 
 # Divide y filtra el blast inicial según los parámetros establecidos y
 # devuelve las rutas a los diferentes blast
-my %blast_path = &bitscore_filter_frame_split($blast, $workdir, $min_bitscore);
+#my %blast_path = &bitscore_filter_frame_split($blast, $workdir, $min_bitscore);
 
 
 # Obtiene los path de los blast parciales de los ficheros que le indiques
@@ -1341,22 +1341,22 @@ my %blast_path = &bitscore_filter_frame_split($blast, $workdir, $min_bitscore);
 # );
 
 # Recorre los blast convirtiendolos en wig y bigwig y devuelve la ruta a los wig
-my @wig_path;
-foreach my $key (sort keys %blast_path) {
-	push @wig_path, &frame_to_wig_and_bigwig($key, $blast_path{$key}, $workdir);
-}
+#my @wig_path;
+#foreach my $key (sort keys %blast_path) {
+#	push @wig_path, &frame_to_wig_and_bigwig($key, $blast_path{$key}, $workdir);
+#}
 
 
 # Recorre los wig extrayendo los picos de los diferentes frames
-my %peaks;
-foreach (@wig_path) {
-	my $ref_peaks = &extract_peaks ($_, $seq_ref);
-	%peaks = (%peaks, %{$ref_peaks});
-}
+#my %peaks;
+#foreach (@wig_path) {
+#	my $ref_peaks = &extract_peaks ($_, $seq_ref);
+#	%peaks = (%peaks, %{$ref_peaks});
+#}
 
 # Mete en memoria los picos de un fichero tsv que le indiques
-# my $ref_peaks = &tsv_to_peaks("$workdir/peaks.tsv");
-# my %peaks = %{$ref_peaks};
+my $ref_peaks = &tsv_to_peaks("$workdir/peaks.tsv");
+my %peaks = %{$ref_peaks};
 
 
 #&peaks_to_tsv(\%peaks, "$workdir/peaks.tsv");
@@ -1379,17 +1379,17 @@ my $ref_gff = &gff_index($gff);
 
 # Compara con los picos para ver cual es la covertura de los picos con 
 # respecto a los item del gff
-#&peaks_vs_gff ($ref_gff, \%peaks, $workdir);
+&peaks_vs_gff ($ref_gff, \%peaks, $workdir);
 
 
 # Genera un fichero con las estadísticas para cada altura de pico con respecto
 # a un gff con los CDS oficiales
 open STAT, ">anablast_stat.tsv" or die $!;
-print STAT "#Min_bitscore\tTotal_peaks\tTotal_CDS\tMin_Top\tTP\tTN\tFP\tFN\tSensitivity\tSpecificity\tACP\tAC\n";
+print STAT "#Min_bitscore\tTotal_peaks\tTotal_CDS\tMin_Top\tTP\tFP\tFN\tSensitivity\tSpecificity\n";
 my %stat;
-for my $top (20..300) {
+for my $top (20..200) {
 	%stat = &sensitivity_specificity($ref_gff, \%peaks, $top, $seq_ref);
-	print STAT "$min_bitscore\t$stat{total}\t$stat{total_cds}\t$top\t$stat{tp}\t$stat{tn}\t$stat{fp}\t$stat{fn}\t$stat{sensitivity}\t$stat{specificity}\t$stat{acp}\t$stat{ca}\n";
+	print STAT "$min_bitscore\t$stat{total}\t$stat{total_cds}\t$top\t$stat{tp}\t$stat{fp}\t$stat{fn}\t$stat{sensitivity}\t$stat{specificity}\n";
 }
 close STAT or die $!;
 
