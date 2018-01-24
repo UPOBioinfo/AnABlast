@@ -1285,7 +1285,8 @@ sub sensitivity_specificity {
 
 ##############################################################################
 ##############################################################################
-# Ejecutar como: ./anablast_v01.pl <path_to_fasta> <path_to_blast> <workdir>
+## Ejecutar como: ./anablast_v01.pl <path_to_fasta> <path_to_blast> <workdir> 
+## <gff> <min_bitscore>
 ##############################################################################
 print STDERR <<'HEADER';
 
@@ -1309,17 +1310,16 @@ my $gff = $ARGV[3];
 my $min_bitscore = $ARGV[4];
 
 
-# Genera el fichero chrom.size necesario para generar los BigWig y 
-# devuelve un hash con la secuencia y longitud de cada secuencia dentro del
-# fasta sin saltos de línea
+## Genera el fichero chrom.size necesario para generar los BigWig y 
+## devuelve un hash el identificador, la secuencia y longitud de cada
+## secuencia dentro del fasta sin saltos de línea
 my $seq_ref = &parse_fasta($fasta, $workdir);
 
-# Divide y filtra el blast inicial según los parámetros establecidos y
-# devuelve las rutas a los diferentes blast
-#my %blast_path = &bitscore_filter_frame_split($blast, $workdir, $min_bitscore);
+## Divide y filtra el blast inicial según el bit score que le indiques y
+## devuelve las rutas a los diferentes blast
+my %blast_path = &bitscore_filter_frame_split($blast, $workdir, $min_bitscore);
 
-
-# Obtiene los path de los blast parciales de los ficheros que le indiques
+## Obtiene los path de los blast parciales de los ficheros que le indiques
 # my %blast_path = (
 # 	"1" => "$workdir/frame1.blast",
 # 	"2" => "$workdir/frame2.blast",
@@ -1329,8 +1329,14 @@ my $seq_ref = &parse_fasta($fasta, $workdir);
 # 	"-3" => "$workdir/frame-3.blast",
 # 	);
 
+## Recorre los blast parciales convirtiendolos en wig y bigwig y devuelve
+## la ruta a los wig
+my @wig_path;
+foreach my $key (sort keys %blast_path) {
+	push @wig_path, &frame_to_wig_and_bigwig($key, $blast_path{$key}, $workdir);
+}
 
-# Obtiene los path de los wig de los ficheros que le indiques
+## Obtiene los path de los wig de los ficheros que le indiques
 # my @wig_path = (
 # "$workdir/frame1.wig",
 # "$workdir/frame2.wig",
@@ -1340,50 +1346,48 @@ my $seq_ref = &parse_fasta($fasta, $workdir);
 # "$workdir/frame-3.wig",
 # );
 
-# Recorre los blast convirtiendolos en wig y bigwig y devuelve la ruta a los wig
-#my @wig_path;
-#foreach my $key (sort keys %blast_path) {
-#	push @wig_path, &frame_to_wig_and_bigwig($key, $blast_path{$key}, $workdir);
-#}
+## Recorre los wig extrayendo los picos de los diferentes frames.
+## Por defecto empieza a considerarlo pico a partir de una altura de 15,
+## solo cuando llega hasta 20 lo considera pico y termina el pico cuando 
+## vuelve a llegar a 15
+my %peaks;
+foreach (@wig_path) {
+	my $ref_peaks = &extract_peaks ($_, $seq_ref);
+	%peaks = (%peaks, %{$ref_peaks});
+}
 
+## Mete en memoria los picos guardados en un fichero tsv que le indiques
+# my $ref_peaks = &tsv_to_peaks("$workdir/peaks.tsv");
+# my %peaks = %{$ref_peaks};
 
-# Recorre los wig extrayendo los picos de los diferentes frames
-#my %peaks;
-#foreach (@wig_path) {
-#	my $ref_peaks = &extract_peaks ($_, $seq_ref);
-#	%peaks = (%peaks, %{$ref_peaks});
-#}
+## Guarda los picos en un fichero tsv
+&peaks_to_tsv(\%peaks, "$workdir/peaks.tsv");
 
-# Mete en memoria los picos de un fichero tsv que le indiques
-my $ref_peaks = &tsv_to_peaks("$workdir/peaks.tsv");
-my %peaks = %{$ref_peaks};
-
-
-#&peaks_to_tsv(\%peaks, "$workdir/peaks.tsv");
+## Guarda los picos en un fichero gff3
 &peaks_to_gff3(\%peaks, "$workdir/peaks.gff");
+
+## Guarda las secuencias de los picos en un fichero fasta
 #&peaks_to_fasta(\%peaks, "$workdir/peaks.faa");
 
+## Busca los ORF y los guarda en un fichero gff3
+my %orf = %{&peaks_elong_orf_search(\%peaks, $seq_ref)};
+&orf_to_gff3(\%orf, "$workdir/orf.gff");
 
-# busca los ORF y los imprime en un fichero gff
-#my %orf = %{&peaks_elong_orf_search(\%peaks, $seq_ref)};
-#&orf_to_gff3(\%orf, "$workdir/orf.gff");
-
-
-# Ejecuta el anotador Sma3s
+## Ejecuta el anotador Sma3s
 #&sma3s($workdir, "/home/databases/sma3s/swissprot_2017_7/uniprot_sprot.dat");
 
-
-# Indexa el gff que le indiques
+## Indexa el gff que le indiques en el argumento 4 ($ARGV[3]). Normalmente
+## es un gff de anotaciones del genoma para compararlo con los picos
 my $ref_gff = &gff_index($gff);
 
-
-# Compara con los picos para ver cual es la covertura de los picos con 
-# respecto a los item del gff
+## Compara con los picos para ver cual es la covertura de los picos con 
+## respecto a los item del gff y guarda los resultados en el fichero 
+## peaks_vs_gff.tsv
 &peaks_vs_gff ($ref_gff, \%peaks, $workdir);
 
-
-# Genera un fichero con las estadísticas para cada altura de pico con respecto
-# a un gff con los CDS oficiales
+## Genera un fichero con las estadísticas para cada altura de pico con
+## respecto a un gff con los CDS oficiales
+my $ref_cds_gff = &gff_index("$workdir/cds.gff");
 open STAT, ">anablast_stat.tsv" or die $!;
 print STAT "#Min_bitscore\tTotal_peaks\tTotal_CDS\tMin_Top\tTP\tFP\tFN\tSensitivity\tSpecificity\n";
 my %stat;
