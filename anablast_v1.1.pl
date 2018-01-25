@@ -50,10 +50,10 @@ sub bitscore_filter_frame_split {
 	################################################################################
 	# filtra los resultados del blast quedandose solo con los que tienen un bitscore
 	# de 30 o superior y elimina las repeticiones
-	# ejemplo: &bitscore_filter(<path_to_blast> <workdir>)
+	# ejemplo: &bitscore_filter(<path_to_blast> <workdir> <bit_threshold> <ref_seq>)
 	################################################################################
 
-	my ($blast, $workdir, $bit_threshold) = @_;
+	my ($blast, $workdir, $bit_threshold, $ref_seq) = @_;
 	print STDERR "\nFiltering Blast by Bitscore >= $bit_threshold and spliting by frame...\n";
 	
 	open BLAST, $blast or die $!;
@@ -77,10 +77,21 @@ sub bitscore_filter_frame_split {
 	while (my $line = <BLAST>) {
 		next if ($prev_line eq $line); # Elimina las líneas repetidas consecutivas
 		$prev_line = $line;
-		my @colums = split (/\t/, $line);
-		if ($colums[5] >= $bit_threshold) {
+		my ($seqid, $chrom, $start, $end, $evalue, $bit, $frame) = split (/\t/, $line);
+		my $f = 0;
+		for my $key (keys %{$ref_seq}) {
+			if ($key eq $chrom) {
+				$f = 1;
+				last;
+			}
+		}
+		if ($f == 0) {
+			print STDERR "Blast warning: no chrom id in seq file\n";
+			next;
+		}
+		if ($bit >= $bit_threshold) {
 			foreach (@frame) {			
-				if ($colums[6] == $_) {
+				if ($frame == $_) {
 					$count{$_}++;
 					print {$file{$_}} $line;
 					last;
@@ -95,7 +106,7 @@ sub bitscore_filter_frame_split {
 	}
 
 	if (!%count) {
-		print STDERR "No blast hit with bitscore higher than 36\n"
+		print STDERR "No blast hit with bitscore higher than $bit_threshold\n"
 	}
 
 	foreach (@frame) {
@@ -624,7 +635,6 @@ sub peaks_elong_orf_search {
 
 	foreach my $key (keys %peaks) {
 		
-		print "***$key\n";
 		my $sub_frame = &frame_calc($peaks{$key}{frame}, $peaks{$key}{start}, $peaks{$key}{end}, $seq{$peaks{$key}{chrom}}{length});
 		
 		my $nn;
@@ -663,14 +673,11 @@ sub peaks_elong_orf_search {
 				}
 			}
 			$nn = substr ($seq{$peaks{$key}{chrom}}{nn}, $start -1, $end - $start +1);
-			print "$nn\n";
 			my $f = 0;
 			for (my $i = 0; $i <= length($nn); $i += 3) {
 				my $codon = substr($nn, $i, 3);
-				print "$codon | ";
 				if ($codon eq "ATG" or $codon eq "ATA" or $codon eq "ATC" or $codon eq "GTG" or $codon eq "TTG" or $codon eq "CTG" or $codon eq "ATT") {
 					if ($f == 0) {
-						print "<= start | ";
 						$c++;
 						$f = 1;
 						$orf{"$key"."_ORF_$c"}{start} = $start + $i;
@@ -682,7 +689,6 @@ sub peaks_elong_orf_search {
 				}
 				elsif ($codon eq "TGA" or $codon eq "TAA" or $codon eq "TAG") {
 					if ($f == 1) {
-						print "<= end\n";
 						$f = 0;
 						$orf{"$key"."_ORF_$c"}{end} = $start + $i +2;
 						$orf{"$key"."_ORF_$c"}{nn} = substr ($seq{$peaks{$key}{chrom}}{nn}, $orf{"$key"."_ORF_$c"}{start} -1, $orf{"$key"."_ORF_$c"}{end} - $orf{"$key"."_ORF_$c"}{start} + 1);
@@ -1317,7 +1323,7 @@ my $seq_ref = &parse_fasta($fasta, $workdir);
 
 ## Divide y filtra el blast inicial según el bit score que le indiques y
 ## devuelve las rutas a los diferentes blast
-my %blast_path = &bitscore_filter_frame_split($blast, $workdir, $min_bitscore);
+my %blast_path = &bitscore_filter_frame_split($blast, $workdir, $min_bitscore, $seq_ref);
 
 ## Obtiene los path de los blast parciales de los ficheros que le indiques
 # my %blast_path = (
