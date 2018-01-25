@@ -86,7 +86,7 @@ sub bitscore_filter_frame_split {
 			}
 		}
 		if ($f == 0) {
-			print STDERR "Blast warning: no chrom id in seq file\n";
+			print STDERR "Blast warning: no chrom id ($chrom) in seq file\n";
 			next;
 		}
 		if ($bit >= $bit_threshold) {
