@@ -1398,7 +1398,7 @@ open STAT, ">anablast_stat.tsv" or die $!;
 print STAT "#Min_bitscore\tTotal_peaks\tTotal_CDS\tMin_Top\tTP\tFP\tFN\tSensitivity\tSpecificity\n";
 my %stat;
 for my $top (20..200) {
-	%stat = &sensitivity_specificity($ref_gff, \%peaks, $top, $seq_ref);
+	%stat = &sensitivity_specificity($ref_cds_gff, \%peaks, $top, $seq_ref);
 	print STAT "$min_bitscore\t$stat{total}\t$stat{total_cds}\t$top\t$stat{tp}\t$stat{fp}\t$stat{fn}\t$stat{sensitivity}\t$stat{specificity}\n";
 }
 close STAT or die $!;
