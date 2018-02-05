@@ -1204,32 +1204,34 @@ sub sensitivity_specificity {
 	print STDERR "Total peaks >= $min_top = $result{total}\n";
 
 	$result{fp} = 0;
-	#open FILE, ">peaks_without_cds_$min_top.txt" or die $!;
+	open FILE, ">peaks_$min_top.txt" or die $!;
 	foreach my $key2 (keys %peaks) {
 		next if ($peaks{$key2}{top} < $min_top);
 		if ($peak_cov{$key2}) {
+			print FILE "$peaks{$key2}{chrom}:$peaks{$key2}{start}..$peaks{$key2}{end}\t1\n"; #Picos con CDS
 			#$result{tp_peaks}++;
 		}
 		else {
 			$result{fp}++;
-	#		print FILE "$peaks{$key2}{chrom}:$peaks{$key2}{start}..$peaks{$key2}{end}\n";
+			print FILE "$peaks{$key2}{chrom}:$peaks{$key2}{start}..$peaks{$key2}{end}\t0\n"; #Picos sin CDS
 		}
 	}
-	#close FILE or die $!;
+	close FILE or die $!;
 	
 	$result{tp} = 0;
 	$result{fn} = 0;
-	#open FILE, ">cds_without_peak_$min_top.txt" or die $!;
+	open FILE, ">cds_$min_top.txt" or die $!;
 	foreach my $key3 (keys %cds) {
 		if ($cds{$key3} == 1) {
+			print FILE "$key3\t1\n"; #CDS con picos
 			$result{tp}++;
 		}
 		else {
-	#		print FILE "$key3\n";
+			print FILE "$key3\t0\n"; #CDS sin picos
 			$result{fn}++;
 		}
 	}
-	#close FILE or die $!;
+	close FILE or die $!;
 
 	$result{sensitivity} = $result{tp}/($result{tp} + $result{fn});
 	$result{specificity} = $result{tp}/($result{tp} + $result{fp});
