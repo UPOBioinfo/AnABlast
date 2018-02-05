@@ -1397,7 +1397,7 @@ my $ref_gff = &gff_index($gff);
 ## respecto a un gff con los CDS oficiales
 my $ref_cds_gff = &gff_index("$workdir/cds.gff");
 open STAT, ">anablast_stat.tsv" or die $!;
-print STAT "#Min_bitscore\tTotal_peaks\tTotal_CDS\tMin_Top\tTP\tFP\tFN\tSensitivity\tSpecificity\n";
+print STAT "Min_bitscore\tTotal_peaks\tTotal_CDS\tMin_Top\tTP\tFP\tFN\tSensitivity\tSpecificity\n";
 my %stat;
 for my $top (20..200) {
 	%stat = &sensitivity_specificity($ref_cds_gff, \%peaks, $top, $seq_ref);
