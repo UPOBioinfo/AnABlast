@@ -1080,7 +1080,7 @@ sub sensitivity_specificity {
 	# ejemplo: &sensitivity_specificity(<ref_gff3> <ref_peaks> <min high>)
 	################################################################################
 
-	my ($ref_gff, $ref_peaks, $min_top, $seq_ref) = @_;
+	my ($ref_gff, $ref_peaks, $min_top, $seq_ref, $print) = @_;
 	print STDERR "\nSensitivity and Specificity (min. top: $min_top)\n";
 	
 	my %chrom = %{$seq_ref};
@@ -1088,9 +1088,7 @@ sub sensitivity_specificity {
 	my %gff = %{$ref_gff};
 
 	my %cds;
-	my %cds_p;
 	my %peak_cov;
-	my %peaks_p;
 	my %result;
 	
 	# Extraer los CDS a partir del gff indexado
@@ -1100,10 +1098,7 @@ sub sensitivity_specificity {
 		foreach my $k2 (keys %{$gff{$k}}) {
 			foreach my $k3 (keys %{$gff{$k}{$k2}}) {
 				foreach my $k4 (keys %{$gff{$k}{$k2}{$k3}}) {
-					$cds{"$k:$gff{$k}{$k2}{$k3}{$k4}{start}..$gff{$k}{$k2}{$k3}{$k4}{end}"} = 2;
-					for my $n ($gff{$k}{$k2}{$k3}{$k4}{start}..$gff{$k}{$k2}{$k3}{$k4}{end}) {
-						$cds_p{$k}{$n} = 1;
-					}
+					$cds{"$k:$gff{$k}{$k2}{$k3}{$k4}{start}..$gff{$k}{$k2}{$k3}{$k4}{end}"} = 0;
 				}
 			}
 		}
@@ -1129,6 +1124,7 @@ sub sensitivity_specificity {
 		my $p_end = $peaks{$key}{end};
 		my $p_length = $peaks{$key}{length};
 		
+		$peak_cov{$key} = 0; # Asigna 0 a la covertura del pico
 
 		for (my $i = $start_range; $i <= $end_range; $i += 10000) {
 			# Recorre los cds de un rango determinado de la cadena fordware del pico
@@ -1158,6 +1154,8 @@ sub sensitivity_specificity {
 					$cds{"$p_chrom:$g_start..$g_end"} = 1;
 				}
 			}
+			next if ($peak_cov{$key} == 1); # si el pico tiene CDS en su cadena no comprueba la complementaria
+
 			my $rev_strand;
 			if ($p_strand eq "+") {
 				$rev_strand = "-";
@@ -1166,7 +1164,7 @@ sub sensitivity_specificity {
 				$rev_strand = "+";
 			}
 
-			# Recorre los cds de un rando determinado en la cadena reversa del pico
+			# Recorre los cds de un rango determinado en la cadena reversa del pico
 			foreach my $key2 (keys %{$gff{$p_chrom}{$rev_strand}{$i}}) {
 				my $g_start = $gff{$p_chrom}{$rev_strand}{$i}{$key2}{start};
 				my $g_end = $gff{$p_chrom}{$rev_strand}{$i}{$key2}{end};
@@ -1193,45 +1191,47 @@ sub sensitivity_specificity {
 					$cds{"$p_chrom:$g_start..$g_end"} = 1;
 				}
 			}
-			if (!$peak_cov{$key}) {
-				foreach my $n ($p_start..$p_end) {
-					$peaks_p{$p_chrom}{$n} = 1;
-				}
-			}
 		}
 	}
 
 	print STDERR "Total peaks >= $min_top = $result{total}\n";
 
 	$result{fp} = 0;
-	open FILE, ">peaks_$min_top.txt" or die $!;
 	foreach my $key2 (keys %peaks) {
 		next if ($peaks{$key2}{top} < $min_top);
-		if ($peak_cov{$key2}) {
-			print FILE "$peaks{$key2}{chrom}:$peaks{$key2}{start}..$peaks{$key2}{end}\t1\n"; #Picos con CDS
+		if ($peak_cov{$key2} == 1) {
 			#$result{tp_peaks}++;
 		}
 		else {
 			$result{fp}++;
-			print FILE "$peaks{$key2}{chrom}:$peaks{$key2}{start}..$peaks{$key2}{end}\t0\n"; #Picos sin CDS
 		}
+
 	}
-	close FILE or die $!;
 	
 	$result{tp} = 0;
 	$result{fn} = 0;
 	open FILE, ">cds_$min_top.txt" or die $!;
 	foreach my $key3 (keys %cds) {
 		if ($cds{$key3} == 1) {
-			print FILE "$key3\t1\n"; #CDS con picos
+			print FILE "$key3\t$min_top\t$cds{$key3}\n"; #CDS con picos
 			$result{tp}++;
 		}
 		else {
-			print FILE "$key3\t0\n"; #CDS sin picos
+			print FILE "$key3\t$min_top\t$cds{$key3}\n"; #CDS sin picos
 			$result{fn}++;
 		}
 	}
 	close FILE or die $!;
+
+	# Imprime en un fichero de texto los picos que solapan o no solapan con CDS y la altura del pico solo si se le indica que lo imprima.
+	if ($print eq "print") {
+		open FILE, ">peaks_$min_top.txt" or die $!;
+		foreach my $key (keys %peaks) {
+			next if ($peaks{$key}{top} < $min_top);
+			print FILE "$peaks{$key}{chrom}:$peaks{$key}{start}..$peaks{$key}{end}\t$peaks{$key}{top}\t$peak_cov{$key}\n"; #Picos con y sin CDS
+		}
+		close FILE or die $!;
+	}
 
 	$result{sensitivity} = $result{tp}/($result{tp} + $result{fn});
 	$result{specificity} = $result{tp}/($result{tp} + $result{fp});
@@ -1240,52 +1240,6 @@ sub sensitivity_specificity {
 	%peak_cov = ();
 	%peaks = ();
 	%gff = ();
-
-	###########################################
-	# my %no_cds;
-	# foreach my $key (sort keys %chrom) {
-	# 	print "Parsing chrom: $key\n";
-	# 	for my $n (1..$chrom{$key}{length}) {
-	# 		if ($cds_p{$key}{$n}) {
-	# 			$no_cds{$key}{$n} = 0;
-	# 		}
-	# 		else {
-	# 			$no_cds{$key}{$n} = 1;
-	# 			if ($peaks_p{$key}{$n}) {
-	# 				$no_cds{$key}{$n} = 2;
-	# 			}
-	# 		}
-	# 		#print "$key\t$n\t$no_cds{$key}{$n}\n";
-	# 	}
-	# }
-
-	# my $c;
-	# my $f = 0;
-	# my %true_n;
-	# #open FILE, ">true_netative_$min_top.txt" or die $!;
-	# foreach my $key (sort keys %no_cds) {
-	# 	for my $n (1..$chrom{$key}{length}) {
-	# 		if ($no_cds{$key}{$n} == 1 and $f == 0) {
-	# 			$f = 1;
-	# 			$c++;
-	# 			$true_n{$c} = "$key:$n.."
-	# 		}
-	# 		if (($no_cds{$key}{$n} != 1 and $f == 1) or ($n == $chrom{$key}{length} and $f == 1)) {
-	# 			$f = 0;
-	# 			$true_n{$c} .= $n;
-	# #			print FILE "$c\t$true_n{$c}\n";
-	# 		}
-	# 	}
-	# }
-	# #close FILE or die $!;
-	# my $tn = $c;
-
-	# $result{tn} = $tn;
-	# $result{acp} = 0.25*($result{tp}/($result{tp}+$result{fn})+$result{tp}/($result{tp}+$result{fp})+$result{tn}/($result{tn}+$result{fp})+$result{tn}/($result{tn}+$result{fn}));
-	# $result{ca} = ($result{acp} - 0.5) * 2;
-	 
-	################################################
-
 
 	return %result;
 }
@@ -1307,7 +1261,7 @@ print STDERR <<'HEADER';
 HEADER
 
 if (!$ARGV[2]) {
-	print "\n\nPlease execute: ./anablast_v01.pl <path_to_fasta> <path_to_blast> <workdir> <gff> <min_bitscore>\n\n";
+	print "\n\nPlease execute: ./anablast_v01.pl <path_to_fasta> <path_to_blast> <workdir> <gff> <min_bitscore> <cds_gff>\n\n";
 	exit;
 }
 
@@ -1316,7 +1270,7 @@ my $blast = $ARGV[1];
 my $workdir = $ARGV[2];
 my $gff = $ARGV[3];
 my $min_bitscore = $ARGV[4];
-
+my $gff_cds = $ARGV[5];
 
 ## Genera el fichero chrom.size necesario para generar los BigWig y 
 ## devuelve un hash el identificador, la secuencia y longitud de cada
@@ -1395,12 +1349,17 @@ my $ref_gff = &gff_index($gff);
 
 ## Genera un fichero con las estadísticas para cada altura de pico con
 ## respecto a un gff con los CDS oficiales
-my $ref_cds_gff = &gff_index("$workdir/cds.gff");
+my $ref_cds_gff = &gff_index("$gff_cds");
+
 open STAT, ">anablast_stat.tsv" or die $!;
 print STAT "Min_bitscore\tTotal_peaks\tTotal_CDS\tMin_Top\tTP\tFP\tFN\tSensitivity\tSpecificity\n";
 my %stat;
 for my $top (20..200) {
-	%stat = &sensitivity_specificity($ref_cds_gff, \%peaks, $top, $seq_ref);
+	my $print = "no print";
+	if ($top == 20) {
+		$print = "print";
+	}
+	%stat = &sensitivity_specificity($ref_cds_gff, \%peaks, $top, $seq_ref, $print);
 	print STAT "$min_bitscore\t$stat{total}\t$stat{total_cds}\t$top\t$stat{tp}\t$stat{fp}\t$stat{fn}\t$stat{sensitivity}\t$stat{specificity}\n";
 }
 close STAT or die $!;
