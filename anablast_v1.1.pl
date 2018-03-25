@@ -132,9 +132,7 @@ sub frame_to_wig_and_bigwig {
 	# ejemplo: &parse_frame(<frame>, <blast.result>)
 	################################################################################
 
-	my $frame = $_[0];
-	my $blast = $_[1];
-	my $workdir = $_[2];
+	my ($frame, $blast, $workdir) = @_;
 	my %chr;
 	my $wig_path = "$workdir/frame$frame.wig";
 
@@ -385,10 +383,9 @@ sub extract_peaks {
 	# determinados valores desde un fichero WIG
 	# Se puede modificar la altura mínima del pico y desde que altura se empieza o se
 	# deja de condiderar que es un pico
-	# ejemplo: &extract_pic(<path_to_wig>, <sequence_reference>)
+	# ejemplo: &extract_pic(<path_to_wig>, <sequence_reference>, <blast_index_reference>)
 	################################################################################
-	my $wig = shift;
-	my $seq_ref = shift;
+	my ($wig, $seq_ref, $blast_ref) = @_;
 	my %seq = %{$seq_ref};
 
 	print STDERR "\nExtracting peaks from WIG: $wig\n";
@@ -426,7 +423,10 @@ sub extract_peaks {
 				else {
 					$pic{"frame_$frame"."_peak_$c"}{strand} = "-";
 				}
-				
+				$pic{"frame_$frame"."_peak_$c"}{pvalue} = &pvalue_calc($chrom, $frame, $start, $end, $blast_ref);
+				my $p = $pic{"frame_$frame"."_peak_$c"}{pvalue};
+				print "$chrom:$start..$end\t$p\n";
+				exit if ($p == 1);
 				$top = 0;
 			}
 			$chrom = $1;
@@ -468,7 +468,10 @@ sub extract_peaks {
 				else {
 					$pic{"frame_$frame"."_peak_$c"}{strand} = "-";
 				}
-				
+				$pic{"frame_$frame"."_peak_$c"}{pvalue} = &pvalue_calc($chrom, $frame, $start, $end, $blast_ref);
+				my $p = $pic{"frame_$frame"."_peak_$c"}{pvalue};
+				print "$chrom:$start..$end\t$p\n";
+				exit if ($p == 1);
 				$top = 0;
 			}	
 		}
@@ -492,6 +495,10 @@ sub extract_peaks {
 		else {
 			$pic{"frame_$frame"."_peak_$c"}{strand} = "-";
 		}
+		$pic{"frame_$frame"."_peak_$c"}{pvalue} = &pvalue_calc($chrom, $frame, $start, $end, $blast_ref);
+		my $p = $pic{"frame_$frame"."_peak_$c"}{pvalue};
+		print "$chrom:$start..$end\t$p\n";
+		exit if ($p == 1);
 	}
 
 	close WIG or die $!;
@@ -517,6 +524,74 @@ sub extract_peaks {
 		$pic{$key}{stop_codon} = $stop_codon;
 	}
 	return \%pic;
+}
+
+sub pvalue_calc {
+	my ($chr, $frame, $start, $end, $ref_blast_index) = @_;
+	my %blast_index = %{$ref_blast_index};
+	my $pvalue = 1;
+
+	my $start_range = 10000 * (int($start/10000) + 1);
+	my $end_range = 10000 * (int($end/10000) + 1);
+
+	for (my $i = $start_range; $i <= $end_range; $i += 10000) {
+		foreach my $k (keys %{$blast_index{$chr}{$frame}{$i}}) {
+			my $b_uniref = $blast_index{$chr}{$frame}{$i}{$k}{uniref};
+			my $b_evalue = $blast_index{$chr}{$frame}{$i}{$k}{evalue};
+			my $b_start = $blast_index{$chr}{$frame}{$i}{$k}{start};
+			my $b_end = $blast_index{$chr}{$frame}{$i}{$k}{end};
+			my $b_pvalue = $blast_index{$chr}{$frame}{$i}{$k}{pvalue};
+			next if ($start > $b_end or $end < $b_start);
+			print "\t$b_uniref\t$b_start\t$b_end\t$b_evalue\t$b_pvalue\n";
+			$pvalue *= $b_pvalue;
+		}
+	}
+	return $pvalue;
+}
+
+sub blast_index {
+	################################################################################
+	# Parte de un fichero en formato blast y lo indexa en memoria para poder trabajar
+	# con el devolviendo la referencia de un hash de hashes
+	# ejemplo: &gff_index(<path to blast>)
+	################################################################################
+	my ($path_to_blast) = @_;
+
+	print STDERR "\nIndexing blast $path_to_blast\n";
+	my %hash;
+	my $c;
+	open BLAST, $path_to_blast or die $!;
+	while (<BLAST>) {
+		chomp;
+		$c++;
+		next if ($_ =~ m/^#/ or $_ =~ m/^$/);
+		my ($uniref, $chr, $start, $end, $evalue, $bit, $frame) = split (/\t/,$_);
+		if ($start > $end) {
+			my $s_temp = $start;
+			my $e_temp = $end;
+			$start = $e_temp;
+			$end = $s_temp;
+		}
+
+		my $e = 2.718281828459045235360;
+		my $exp= $e**(-$evalue);
+		my $pvalue= 1-$exp;
+
+		my $start_range = 10000 * (int($start/10000) + 1);
+		my $end_range = 10000 * (int($end/10000) + 1);
+
+		for (my $i = $start_range; $i <= $end_range; $i += 10000) {
+			$hash{$chr}{$frame}{$i}{$c}{evalue} = $evalue;
+			$hash{$chr}{$frame}{$i}{$c}{uniref} = $uniref;
+			$hash{$chr}{$frame}{$i}{$c}{chr} = $chr;
+			$hash{$chr}{$frame}{$i}{$c}{start} = $start;
+			$hash{$chr}{$frame}{$i}{$c}{end} = $end;
+			$hash{$chr}{$frame}{$i}{$c}{frame} = $frame;
+			$hash{$chr}{$frame}{$i}{$c}{pvalue} = $pvalue;
+		}
+	}
+	close BLAST or die $!;
+	return \%hash;
 }
 
 sub peaks_to_tsv {
@@ -1205,7 +1280,6 @@ sub sensitivity_specificity {
 		else {
 			$result{fp}++;
 		}
-
 	}
 	
 	$result{tp} = 0;
@@ -1314,7 +1388,11 @@ foreach my $key (sort keys %blast_path) {
 ## vuelve a llegar a 15
 my %peaks;
 foreach (@wig_path) {
-	my $ref_peaks = &extract_peaks ($_, $seq_ref);
+	my $wig = $_;
+	my $blast = $wig;
+	$blast =~ s/\.wig/\.blast/;
+	my $blast_ref_index = &blast_index($blast);
+	my $ref_peaks = &extract_peaks ($wig, $seq_ref, $blast_ref_index);
 	%peaks = (%peaks, %{$ref_peaks});
 }
 
@@ -1351,17 +1429,17 @@ my $ref_gff = &gff_index($gff);
 ## respecto a un gff con los CDS oficiales
 my $ref_cds_gff = &gff_index("$gff_cds");
 
-open STAT, ">anablast_stat.tsv" or die $!;
-print STAT "Min_bitscore\tTotal_peaks\tTotal_CDS\tMin_Top\tTP\tFP\tFN\tSensitivity\tSpecificity\n";
-my %stat;
-for my $top (20..200) {
-	my $print = "no print";
-	if ($top == 20) {
-		$print = "print";
-	}
-	%stat = &sensitivity_specificity($ref_cds_gff, \%peaks, $top, $seq_ref, $print);
-	print STAT "$min_bitscore\t$stat{total}\t$stat{total_cds}\t$top\t$stat{tp}\t$stat{fp}\t$stat{fn}\t$stat{sensitivity}\t$stat{specificity}\n";
-}
-close STAT or die $!;
+# open STAT, ">anablast_stat.tsv" or die $!;
+# print STAT "Min_bitscore\tTotal_peaks\tTotal_CDS\tMin_Top\tTP\tFP\tFN\tSensitivity\tSpecificity\n";
+# my %stat;
+# for my $top (20..200) {
+# 	my $print = "no print";
+# 	if ($top == 20) {
+# 		$print = "print";
+# 	}
+# 	%stat = &sensitivity_specificity($ref_cds_gff, \%peaks, $top, $seq_ref, $print);
+# 	print STAT "$min_bitscore\t$stat{total}\t$stat{total_cds}\t$top\t$stat{tp}\t$stat{fp}\t$stat{fn}\t$stat{sensitivity}\t$stat{specificity}\n";
+# }
+# close STAT or die $!;
 
 exit;

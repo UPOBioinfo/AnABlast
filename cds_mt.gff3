@@ -1,0 +1,12 @@
+MtDNA	WormBase	CDS	113	544	.	+	0	ID=CDS:MTCE.3;Parent=Transcript:MTCE.3;Name=MTCE.3;prediction_status=Confirmed;wormpep=WP:CE34072;locus=nduo-6
+MtDNA	WormBase	CDS	549	779	.	+	0	ID=CDS:MTCE.4;Parent=Transcript:MTCE.4;Name=MTCE.4;prediction_status=Confirmed;wormpep=WP:CE35354;locus=ndfl-4
+MtDNA	WormBase	CDS	1763	2635	.	+	0	ID=CDS:MTCE.11;Parent=Transcript:MTCE.11;Name=MTCE.11;prediction_status=Confirmed;wormpep=WP:CE34065;locus=nduo-1
+MtDNA	WormBase	CDS	2634	3230	.	+	0	ID=CDS:MTCE.12;Parent=Transcript:MTCE.12;Name=MTCE.12;prediction_status=Confirmed;wormpep=WP:CE35346;locus=atp-6
+MtDNA	WormBase	CDS	3418	4263	.	+	0	ID=CDS:MTCE.16;Parent=Transcript:MTCE.16;Name=MTCE.16;prediction_status=Confirmed;wormpep=WP:CE35347;locus=nduo-2
+MtDNA	WormBase	CDS	4504	5613	.	+	0	ID=CDS:MTCE.21;Parent=Transcript:MTCE.21;Name=MTCE.21;prediction_status=Partially_confirmed;wormpep=WP:CE35348;locus=ctb-1
+MtDNA	WormBase	CDS	5678	6442	.	+	0	ID=CDS:MTCE.23;Parent=Transcript:MTCE.23;Name=MTCE.23;prediction_status=Confirmed;wormpep=WP:CE34069;locus=ctc-3
+MtDNA	WormBase	CDS	6506	7732	.	+	0	ID=CDS:MTCE.25;Parent=Transcript:MTCE.25;Name=MTCE.25;prediction_status=Partially_confirmed;wormpep=WP:CE35349;locus=nduo-4
+MtDNA	WormBase	CDS	7845	9419	.	+	0	ID=CDS:MTCE.26;Parent=Transcript:MTCE.26;Name=MTCE.26;prediction_status=Confirmed;wormpep=WP:CE35350;locus=ctc-1
+MtDNA	WormBase	CDS	9649	10341	.	+	0	ID=CDS:MTCE.31;Parent=Transcript:MTCE.31;Name=MTCE.31;prediction_status=Partially_confirmed;wormpep=WP:CE35351;locus=ctc-2
+MtDNA	WormBase	CDS	11356	11688	.	+	0	ID=CDS:MTCE.34;Parent=Transcript:MTCE.34;Name=MTCE.34;prediction_status=Confirmed;wormpep=WP:CE35352;locus=nduo-3
+MtDNA	WormBase	CDS	11691	13271	.	+	0	ID=CDS:MTCE.35;Parent=Transcript:MTCE.35;Name=MTCE.35;prediction_status=Confirmed;wormpep=WP:CE35353;locus=nduo-5
