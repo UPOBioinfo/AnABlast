@@ -424,9 +424,9 @@ sub extract_peaks {
 					$pic{"frame_$frame"."_peak_$c"}{strand} = "-";
 				}
 				$pic{"frame_$frame"."_peak_$c"}{pvalue} = &pvalue_calc($chrom, $frame, $start, $end, $blast_ref);
-				my $p = $pic{"frame_$frame"."_peak_$c"}{pvalue};
-				print "$chrom:$start..$end\t$p\n";
-				exit if ($p == 1);
+				# my $p = $pic{"frame_$frame"."_peak_$c"}{pvalue};
+				# print "$chrom:$start..$end\t$p\n";
+				# exit if ($p == 1);
 				$top = 0;
 			}
 			$chrom = $1;
@@ -469,9 +469,9 @@ sub extract_peaks {
 					$pic{"frame_$frame"."_peak_$c"}{strand} = "-";
 				}
 				$pic{"frame_$frame"."_peak_$c"}{pvalue} = &pvalue_calc($chrom, $frame, $start, $end, $blast_ref);
-				my $p = $pic{"frame_$frame"."_peak_$c"}{pvalue};
-				print "$chrom:$start..$end\t$p\n";
-				exit if ($p == 1);
+				# my $p = $pic{"frame_$frame"."_peak_$c"}{pvalue};
+				# print "$chrom:$start..$end\t$p\n";
+				# exit if ($p == 1);
 				$top = 0;
 			}	
 		}
@@ -496,9 +496,9 @@ sub extract_peaks {
 			$pic{"frame_$frame"."_peak_$c"}{strand} = "-";
 		}
 		$pic{"frame_$frame"."_peak_$c"}{pvalue} = &pvalue_calc($chrom, $frame, $start, $end, $blast_ref);
-		my $p = $pic{"frame_$frame"."_peak_$c"}{pvalue};
-		print "$chrom:$start..$end\t$p\n";
-		exit if ($p == 1);
+		# my $p = $pic{"frame_$frame"."_peak_$c"}{pvalue};
+		# print "$chrom:$start..$end\t$p\n";
+		# exit if ($p == 1);
 	}
 
 	close WIG or die $!;
