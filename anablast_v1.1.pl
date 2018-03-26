@@ -542,7 +542,7 @@ sub pvalue_calc {
 			my $b_end = $blast_index{$chr}{$frame}{$i}{$k}{end};
 			my $b_pvalue = $blast_index{$chr}{$frame}{$i}{$k}{pvalue};
 			next if ($start > $b_end or $end < $b_start);
-			print "\t$b_uniref\t$b_start\t$b_end\t$b_evalue\t$b_pvalue\n";
+			#print "\t$b_uniref\t$b_start\t$b_end\t$b_evalue\t$b_pvalue\n";
 			$pvalue *= $b_pvalue;
 		}
 	}
