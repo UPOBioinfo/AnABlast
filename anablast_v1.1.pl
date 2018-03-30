@@ -533,7 +533,11 @@ sub pvalue_calc {
 
 	my $start_range = 10000 * (int($start/10000) + 1);
 	my $end_range = 10000 * (int($end/10000) + 1);
-
+	my %nn;
+	my $length = $end - $start + 1;
+	for my $n ($start..$end) {
+		$nn{$n} = 1;
+	}
 	for (my $i = $start_range; $i <= $end_range; $i += 10000) {
 		foreach my $k (keys %{$blast_index{$chr}{$frame}{$i}}) {
 			my $b_uniref = $blast_index{$chr}{$frame}{$i}{$k}{uniref};
@@ -541,7 +545,15 @@ sub pvalue_calc {
 			my $b_start = $blast_index{$chr}{$frame}{$i}{$k}{start};
 			my $b_end = $blast_index{$chr}{$frame}{$i}{$k}{end};
 			my $b_pvalue = $blast_index{$chr}{$frame}{$i}{$k}{pvalue};
+			my $b_length = $blast_index{$chr}{$frame}{$i}{$k}{length};
 			next if ($start > $b_end or $end < $b_start);
+			my $overlap;
+			for my $n ($b_start..$b_end) {
+				if ($nn{$n}) {
+					$overlap++;
+				}
+			}
+			next unless ($overlap/$length >= 0.2 or $overlap/$b_length >= 0.2);
 			#print "\t$b_uniref\t$b_start\t$b_end\t$b_evalue\t$b_pvalue\n";
 			$pvalue *= $b_pvalue;
 		}
@@ -588,6 +600,7 @@ sub blast_index {
 			$hash{$chr}{$frame}{$i}{$c}{end} = $end;
 			$hash{$chr}{$frame}{$i}{$c}{frame} = $frame;
 			$hash{$chr}{$frame}{$i}{$c}{pvalue} = $pvalue;
+			$hash{$chr}{$frame}{$i}{$c}{length} = $end - $start + 1;
 		}
 	}
 	close BLAST or die $!;
@@ -683,7 +696,7 @@ sub peaks_to_fasta {
 		my $ref_peaks = shift;
       my %peaks = %{$ref_peaks};
       my $fasta = shift;
-
+ 
    open OUT, ">$fasta" or die $!;
 	foreach my $key (keys %peaks) {
 		print OUT ">$key $peaks{$key}{chrom}:$peaks{$key}{start}..$peaks{$key}{end}\n";
