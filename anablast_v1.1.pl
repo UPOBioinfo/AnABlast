@@ -388,7 +388,7 @@ sub extract_peaks {
 	my ($wig, $seq_ref, $blast_ref) = @_;
 	my %seq = %{$seq_ref};
 
-	print STDERR "\nExtracting peaks from WIG: $wig\n";
+	print STDERR "Extracting peaks from WIG: $wig\n";
 	my $chrom;
 	my $frame;
 	my $start;
@@ -1037,7 +1037,7 @@ sub gff_index {
 	}
 	$hash{total} = $c;
 	close GFF or die $!;
-	print STDERR "Total item $c in $gff\n";
+	print STDERR "Total $c item in $gff\n";
 	return \%hash;
 }
 
@@ -1193,7 +1193,7 @@ sub sensitivity_specificity {
 	}
 
 	$result{total_cds} = keys %cds;
-	print STDERR "Total uniq CDS = $result{total_cds}\n";
+	#print STDERR "Total uniq CDS = $result{total_cds}\n";
 
 	# Recorre los picos
 	foreach my $key (keys %peaks) {
@@ -1282,7 +1282,7 @@ sub sensitivity_specificity {
 		}
 	}
 
-	print STDERR "Total peaks >= $min_top = $result{total}\n";
+	print STDERR "Total peaks:\t$result{total}\n";
 
 	$result{fp} = 0;
 	foreach my $key2 (keys %peaks) {
@@ -1352,12 +1352,9 @@ if (!$ARGV[2]) {
 	exit;
 }
 
-my $fasta = $ARGV[0];
-my $blast = $ARGV[1];
-my $workdir = $ARGV[2];
-my $gff = $ARGV[3];
-my $min_bitscore = $ARGV[4];
-my $gff_cds = $ARGV[5];
+my ($fasta, $blast, $workdir, $gff, $min_bitscore, $gff_cds) = @ARGV;
+
+print "\n#########\nparameters:\nfasta = $fasta\nblast =$blast\nworkdir = $workdir\nannot gff = $gff\nmin biscore = $min_bitscore\ncds gff = $gff_cds\n##########\n";
 
 ## Genera el fichero chrom.size necesario para generar los BigWig y 
 ## devuelve un hash el identificador, la secuencia y longitud de cada
@@ -1442,17 +1439,17 @@ my $ref_gff = &gff_index($gff);
 ## respecto a un gff con los CDS oficiales
 my $ref_cds_gff = &gff_index("$gff_cds");
 
-# open STAT, ">anablast_stat.tsv" or die $!;
-# print STAT "Min_bitscore\tTotal_peaks\tTotal_CDS\tMin_Top\tTP\tFP\tFN\tSensitivity\tSpecificity\n";
-# my %stat;
-# for my $top (20..200) {
-# 	my $print = "no print";
-# 	if ($top == 20) {
-# 		$print = "print";
-# 	}
-# 	%stat = &sensitivity_specificity($ref_cds_gff, \%peaks, $top, $seq_ref, $print);
-# 	print STAT "$min_bitscore\t$stat{total}\t$stat{total_cds}\t$top\t$stat{tp}\t$stat{fp}\t$stat{fn}\t$stat{sensitivity}\t$stat{specificity}\n";
-# }
-# close STAT or die $!;
+open STAT, ">anablast_stat.tsv" or die $!;
+print STAT "Min_bitscore\tTotal_peaks\tTotal_CDS\tMin_Top\tTP\tFP\tFN\tSensitivity\tSpecificity\n";
+my %stat;
+for my $top (20..200) {
+	my $print = "no print";
+	if ($top == 20) {
+		$print = "print";
+	}
+	%stat = &sensitivity_specificity($ref_cds_gff, \%peaks, $top, $seq_ref, $print);
+	print STAT "$min_bitscore\t$stat{total}\t$stat{total_cds}\t$top\t$stat{tp}\t$stat{fp}\t$stat{fn}\t$stat{sensitivity}\t$stat{specificity}\n";
+}
+close STAT or die $!;
 
 exit;
