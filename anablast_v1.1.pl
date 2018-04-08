@@ -653,17 +653,9 @@ sub tsv_to_peaks {
 		}
 		my @data = split(/\t/, $_);
 
-		$peaks{$data[0]}{$header[1]} = $data[1];
-		$peaks{$data[0]}{$header[2]} = $data[2];
-		$peaks{$data[0]}{$header[3]} = $data[3];
-		$peaks{$data[0]}{$header[4]} = $data[4];
-		$peaks{$data[0]}{$header[5]} = $data[5];
-		$peaks{$data[0]}{$header[6]} = $data[6];
-		$peaks{$data[0]}{$header[7]} = $data[7];
-		$peaks{$data[0]}{$header[8]} = $data[8];
-		$peaks{$data[0]}{$header[9]} = $data[9];
-		$peaks{$data[0]}{$header[10]} = $data[10];
-		$peaks{$data[0]}{$header[11]} = $data[11];
+		foreach my $i (1..$#header) {
+			$peaks{$data[0]}{$header[$i]} = $data[$i];
+		}
 	}
 	return \%peaks;
 }
