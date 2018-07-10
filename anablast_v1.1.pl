@@ -385,7 +385,7 @@ sub extract_peaks {
 	# deja de condiderar que es un pico
 	# ejemplo: &extract_pic(<path_to_wig>, <sequence_reference>, <blast_index_reference>)
 	################################################################################
-	my ($wig, $seq_ref, $blast_ref) = @_;
+	my ($wig, $seq_ref) = @_; # Se ha eliminado el tercer argumento $blat_ref para eliminar el cáculo de pvalor
 	my %seq = %{$seq_ref};
 
 	print STDERR "Extracting peaks from WIG: $wig\n";
@@ -1393,8 +1393,8 @@ foreach (@wig_path) {
 	my $wig = $_;
 	my $blast = $wig;
 	$blast =~ s/\.wig/\.blast/;
-	my $blast_ref_index = &blast_index($blast);
-	my $ref_peaks = &extract_peaks ($wig, $seq_ref, $blast_ref_index);
+	# my $blast_ref_index = &blast_index($blast); # comentado para eliminar el calculo de pavalor 
+	my $ref_peaks = &extract_peaks ($wig, $seq_ref); # Se ha elimindo el tercer argumento $blast_ref_index para eliminar el pvalor
 	%peaks = (%peaks, %{$ref_peaks});
 }
 
