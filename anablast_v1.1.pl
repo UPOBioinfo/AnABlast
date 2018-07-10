@@ -423,7 +423,7 @@ sub extract_peaks {
 				else {
 					$pic{"frame_$frame"."_peak_$c"}{strand} = "-";
 				}
-				$pic{"frame_$frame"."_peak_$c"}{pvalue} = &pvalue_calc($chrom, $frame, $start, $end, $blast_ref);
+				# $pic{"frame_$frame"."_peak_$c"}{pvalue} = &pvalue_calc($chrom, $frame, $start, $end, $blast_ref); # comentado para eliminar el calculo de pvalor
 				# my $p = $pic{"frame_$frame"."_peak_$c"}{pvalue};
 				# print "$chrom:$start..$end\t$p\n";
 				# exit if ($p == 1);
@@ -468,7 +468,7 @@ sub extract_peaks {
 				else {
 					$pic{"frame_$frame"."_peak_$c"}{strand} = "-";
 				}
-				$pic{"frame_$frame"."_peak_$c"}{pvalue} = &pvalue_calc($chrom, $frame, $start, $end, $blast_ref);
+				# $pic{"frame_$frame"."_peak_$c"}{pvalue} = &pvalue_calc($chrom, $frame, $start, $end, $blast_ref); # comentado para eliminar el calculo de pvalor
 				# my $p = $pic{"frame_$frame"."_peak_$c"}{pvalue};
 				# print "$chrom:$start..$end\t$p\n";
 				# exit if ($p == 1);
@@ -495,7 +495,7 @@ sub extract_peaks {
 		else {
 			$pic{"frame_$frame"."_peak_$c"}{strand} = "-";
 		}
-		$pic{"frame_$frame"."_peak_$c"}{pvalue} = &pvalue_calc($chrom, $frame, $start, $end, $blast_ref);
+		# $pic{"frame_$frame"."_peak_$c"}{pvalue} = &pvalue_calc($chrom, $frame, $start, $end, $blast_ref); Comentado para eliminar el calculo del pvalor
 		# my $p = $pic{"frame_$frame"."_peak_$c"}{pvalue};
 		# print "$chrom:$start..$end\t$p\n";
 		# exit if ($p == 1);
