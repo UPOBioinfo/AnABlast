@@ -649,9 +649,11 @@ sub tsv_to_peaks {
 	while (<TSV>) {
 		if ($_ =~ m/^id/) {
 			@header = split(/\t/, $_);
+			chomp @header;
 			next;
 		}
 		my @data = split(/\t/, $_);
+		chomp @data;
 
 		foreach my $i (1..$#header) {
 			$peaks{$data[0]}{$header[$i]} = $data[$i];
