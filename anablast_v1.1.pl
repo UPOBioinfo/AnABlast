@@ -854,6 +854,224 @@ sub peaks_elong_orf_search {
 	return \%orf;
 }
 
+sub new_orf_search {
+	################################################################################
+	# Busca ORF en los picos con un núevo método
+	# ejemplo: &orf_search(<ref_peaks>, <sequence_reference>)
+	################################################################################
+
+	my $ref_peaks = shift;
+	my %peaks = %{$ref_peaks};
+	my $seq_ref = shift;
+	my %seq = %{$seq_ref};
+
+	print STDERR "\nSearching ORF in peaks\n";
+
+	my %orf;
+	my $c;
+
+	foreach my $key (keys %peaks) {
+		
+		my $nn; # Secuencia de nucleótidos extraida
+		my $frame_start; # posición de inicio del frame 
+		my $rest; # resto de la posición de inicio cuando lo dividimos entre 3
+		my $objetiv_rest; # resto que quiero tener para trabajar con el frame correcto
+		my $frame_end; # posición final del frame
+
+		if ($peaks{$key}{frame} > 0) { # Para los frames positivos
+			# cálculo de la posición de inicio del frame
+			if ($peaks{$key}{frame} == 1) {
+				$objetiv_rest = 0;
+			}
+			elsif ($peaks{$key}{frame} == 2) {
+				$objetiv_rest = 1;
+			}
+			elsif ($peaks{$key}{frame} == 3) {
+				$objetiv_rest = 3;
+			}
+
+			$frame_start = $peaks{$key}{start}; # iniciamos el frame en la posición de inicio del pico
+			$rest = $peaks{$key}{start} % 3;
+
+			for (1..6) { # Corregimos el inicio hasta tener el resto adecuado
+				if ($rest != $objetiv_rest) {
+					$frame_start++;
+				}
+				elsif ($rest == $objetiv_rest) {
+					last;
+				}
+			}
+
+			$frame_end = $frame_start + 3; # iniciamos el final del frame en el siguiente codon al inicio del frame
+			
+			# búsqueda del primer codon de stop previo al inicio del frame
+			while (1) {
+				if ($frame_start <= 1) {
+					$frame_start = $peaks{$key}{frame};
+					last;
+				}
+				my $codon = substr ($seq{$peaks{$key}{chrom}}{nn}, $frame_start -1, 3);
+				if ($codon eq "TGA" or $codon eq "TAA" or $codon eq "TAG" or $codon eq "NNN") {
+					last;
+				}
+				else {
+					$frame_start -= 3;
+				}
+			}
+
+			# Búsqueda del siguiente codon de stop 
+			while (1) {
+				if ($frame_end >= $seq{$peaks{$key}{chrom}}{length} - 3) {
+					$frame_end = $seq{$peaks{$key}{chrom}}{length};
+					last;
+				}
+				my $codon = substr ($seq{$peaks{$key}{chrom}}{nn}, $frame_end -1, 3);
+				if ($codon eq "TGA" or $codon eq "TAA" or $codon eq "TAG" or $codon eq "NNN") {
+					$frame_end += 3;
+					if ($frame_end < $peaks{$key}{end}) { # Si encuentra un codon de stop comprueba que ha superado el final del pico
+						next;
+					}
+					else {
+						last;	
+					}
+				}
+				else {
+					$frame_end += 3;
+				}
+			}
+
+			$nn = substr ($seq{$peaks{$key}{chrom}}{nn}, $frame_start -1, $frame_end - $frame_start +1); # Extrae la secuencia de nucleótidos
+			my $f = 0;
+			for (my $i = 0; $i <= length($nn); $i += 3) {
+				my $codon = substr($nn, $i, 3);
+				if ($codon eq "ATG" or $codon eq "ATA" or $codon eq "ATC" or $codon eq "GTG" or $codon eq "TTG" or $codon eq "CTG" or $codon eq "ATT") {
+					if ($f == 0) {
+						$c++;
+						$f = 1;
+						$orf{"$key"."_ORF_$c"}{start} = $frame_start + $i;
+						$orf{"$key"."_ORF_$c"}{parent} = $key;
+						$orf{"$key"."_ORF_$c"}{chrom} = $peaks{$key}{chrom};
+						$orf{"$key"."_ORF_$c"}{strand} = $peaks{$key}{strand};
+						$orf{"$key"."_ORF_$c"}{frame} = $peaks{$key}{frame};
+					}
+				}
+				elsif ($codon eq "TGA" or $codon eq "TAA" or $codon eq "TAG") {
+					if ($f == 1) {
+						$f = 0;
+						$orf{"$key"."_ORF_$c"}{end} = $frame_start + $i +2;
+						$orf{"$key"."_ORF_$c"}{nn} = substr ($seq{$peaks{$key}{chrom}}{nn}, $orf{"$key"."_ORF_$c"}{start} -1, $orf{"$key"."_ORF_$c"}{end} - $orf{"$key"."_ORF_$c"}{start} + 1);
+						$orf{"$key"."_ORF_$c"}{aa} = &dna2aa($orf{"$key"."_ORF_$c"}{nn}, 1);
+						delete $orf{"$key"."_ORF_$c"} if (length $orf{"$key"."_ORF_$c"}{aa} <= 5);
+					}
+				}
+			}
+		}
+		else { # para los frames negativos
+
+			# cálculo de la posición de inicio del frame
+			if ($peaks{$key}{frame} == -1) {
+				$objetiv_rest = 0;
+			}
+			elsif ($peaks{$key}{frame} == -2) {
+				$objetiv_rest = 1;
+			}
+			elsif ($peaks{$key}{frame} == -3) {
+				$objetiv_rest = 3;
+			}
+
+			$frame_start = $peaks{$key}{end};
+			$rest = ($seq{$peaks{$key}{chrom}}{length} - $frame_start) % 3;
+
+			for (1..6) { # Corregimos el inicio hasta tener el resto adecuado
+				if ($rest != $objetiv_rest) {
+					$frame_start--;
+				}
+				elsif ($rest == $objetiv_rest) {
+					last;
+				}
+			}
+
+			$frame_end = $frame_start - 3; # Iniciamos el final del frame en el codon anterior
+
+			# Buscamos el primer codon de fin despues de la posición de inicio
+			while (1) {
+				if ($frame_start >= $seq{$peaks{$key}{chrom}}{length} - 3) {
+					$frame_start = $seq{$peaks{$key}{chrom}}{length} + $peaks{$key}{frame};
+					last;
+				}
+				my $codon = substr ($seq{$peaks{$key}{chrom}}{nn}, $frame_start -1, 3);
+				my $rcodon = &reverse_comp($codon);
+				if ($rcodon eq "TGA" or $rcodon eq "TAA" or $rcodon eq "TAG" or $rcodon eq "NNN") {
+					last;
+				}
+				else {
+					$frame_start -= 3;
+				}
+			}
+
+			# buscamos el primer codon de inicio despues del final del pico
+			while (1) {
+				if ($frame_end <= 1) {
+					$frame_end = abs($peaks{$key}{frame});
+					last;
+				}
+
+				my $codon = substr($seq{$peaks{$key}{chrom}}{nn}, $frame_end +1, -3);
+				my $rcodon = &reverse_comp($codon);
+
+				if ($rcodon eq "TGA" or $rcodon eq "TAA" or $rcodon eq "TAG" or $rcodon eq "NNN") {
+					$frame_end -= 3;
+					if ($frame_end > $peaks{$key}{start}) {
+						next;
+					}
+					else {
+						last;	
+					}
+					
+				}
+				else {
+					$frame_end -= 3;
+				}
+			}
+			$nn = substr ($seq{$peaks{$key}{chrom}}{nn}, $frame_start +1, $frame_start - $frame_end +1);
+			#print "\n$peaks{$key}{chrom}:$start..$end\t$peaks{$key}{frame}\n$nn\n";
+			$nn = &reverse_comp($nn);
+			
+			my $f = 0;
+
+			for (my $i = 0; $i <= length($nn); $i += 3) {
+				my $codon = substr($nn, $i, 3);
+				if ($codon eq "ATG" or $codon eq "ATA" or $codon eq "ATC" or $codon eq "GTG" or $codon eq "TTG" or $codon eq "CTG" or $codon eq "ATT") {
+					if ($f == 0) {
+						$c++;
+						$f = 1;
+						$orf{"$key"."_ORF_$c"}{end} = $frame_start - $i;
+						$orf{"$key"."_ORF_$c"}{parent} = $key;
+						$orf{"$key"."_ORF_$c"}{chrom} = $peaks{$key}{chrom};
+						$orf{"$key"."_ORF_$c"}{strand} = $peaks{$key}{strand};
+						$orf{"$key"."_ORF_$c"}{frame} = $peaks{$key}{frame};
+					}
+				}
+				elsif ($codon eq "TGA" or $codon eq "TAA" or $codon eq "TAG") {
+					if ($f == 1) {
+						$f = 0;
+						$orf{"$key"."_ORF_$c"}{start} = $frame_start - $i - 2;
+						$orf{"$key"."_ORF_$c"}{nn} = &reverse_comp(substr ($seq{$peaks{$key}{chrom}}{nn}, $orf{"$key"."_ORF_$c"}{start} -1, $orf{"$key"."_ORF_$c"}{end} - $orf{"$key"."_ORF_$c"}{start} +1));
+						$orf{"$key"."_ORF_$c"}{aa} = &dna2aa($orf{"$key"."_ORF_$c"}{nn}, 1);
+						delete $orf{"$key"."_ORF_$c"} if (length $orf{"$key"."_ORF_$c"}{aa} <= 5);
+					}
+				}
+			}
+		}
+	}
+	foreach my $key (keys %orf) {
+		if (!$orf{$key}{start} or !$orf{$key}{end}) {
+			delete $orf{$key};
+		}
+	}
+	return \%orf;
+}
+
 sub orf_to_gff3 {
 	################################################################################
 	# Guarda los ORF en formato GFF3
@@ -1357,7 +1575,7 @@ my $seq_ref = &parse_fasta($fasta, $workdir);
 
 ## Divide y filtra el blast inicial según el bit score que le indiques y
 ## devuelve las rutas a los diferentes blast
-my %blast_path = &bitscore_filter_frame_split($blast, $workdir, $min_bitscore, $seq_ref);
+# my %blast_path = &bitscore_filter_frame_split($blast, $workdir, $min_bitscore, $seq_ref);
 
 ## Obtiene los path de los blast parciales de los ficheros que le indiques
 # my %blast_path = (
@@ -1371,10 +1589,10 @@ my %blast_path = &bitscore_filter_frame_split($blast, $workdir, $min_bitscore, $
 
 ## Recorre los blast parciales convirtiendolos en wig y bigwig y devuelve
 ## la ruta a los wig
-my @wig_path;
-foreach my $key (sort keys %blast_path) {
-	push @wig_path, &frame_to_wig_and_bigwig($key, $blast_path{$key}, $workdir);
-}
+# my @wig_path;
+# foreach my $key (sort keys %blast_path) {
+# 	push @wig_path, &frame_to_wig_and_bigwig($key, $blast_path{$key}, $workdir);
+# }
 
 ## Obtiene los path de los wig de los ficheros que le indiques
 # my @wig_path = (
@@ -1390,19 +1608,19 @@ foreach my $key (sort keys %blast_path) {
 ## Por defecto empieza a considerarlo pico a partir de una altura de 15,
 ## solo cuando llega hasta 20 lo considera pico y termina el pico cuando 
 ## vuelve a llegar a 15
-my %peaks;
-foreach (@wig_path) {
-	my $wig = $_;
-	my $blast = $wig;
-	$blast =~ s/\.wig/\.blast/;
-	# my $blast_ref_index = &blast_index($blast); # comentado para eliminar el calculo de pavalor 
-	my $ref_peaks = &extract_peaks ($wig, $seq_ref); # Se ha elimindo el tercer argumento $blast_ref_index para eliminar el pvalor
-	%peaks = (%peaks, %{$ref_peaks});
-}
+# my %peaks;
+# foreach (@wig_path) {
+# 	my $wig = $_;
+# 	my $blast = $wig;
+# 	$blast =~ s/\.wig/\.blast/;
+# 	# my $blast_ref_index = &blast_index($blast); # comentado para eliminar el calculo de pavalor 
+# 	my $ref_peaks = &extract_peaks ($wig, $seq_ref); # Se ha elimindo el tercer argumento $blast_ref_index para eliminar el pvalor
+# 	%peaks = (%peaks, %{$ref_peaks});
+# }
 
 ## Mete en memoria los picos guardados en un fichero tsv que le indiques
-# my $ref_peaks = &tsv_to_peaks("$workdir/peaks.tsv");
-# my %peaks = %{$ref_peaks};
+my $ref_peaks = &tsv_to_peaks("$workdir/peaks.tsv");
+my %peaks = %{$ref_peaks};
 
 ## Guarda los picos en un fichero tsv
 &peaks_to_tsv(\%peaks, "$workdir/peaks.tsv");
@@ -1422,28 +1640,28 @@ my %orf = %{&peaks_elong_orf_search(\%peaks, $seq_ref)};
 
 ## Indexa el gff que le indiques en el argumento 4 ($ARGV[3]). Normalmente
 ## es un gff de anotaciones del genoma para compararlo con los picos
-my $ref_gff = &gff_index($gff);
+# my $ref_gff = &gff_index($gff);
 
 ## Compara con los picos para ver cual es la covertura de los picos con 
 ## respecto a los item del gff y guarda los resultados en el fichero 
 ## peaks_vs_gff.tsv
-&peaks_vs_gff ($ref_gff, \%peaks, $workdir);
+# &peaks_vs_gff ($ref_gff, \%peaks, $workdir);
 
 ## Genera un fichero con las estadísticas para cada altura de pico con
 ## respecto a un gff con los CDS oficiales
-my $ref_cds_gff = &gff_index("$gff_cds");
+# my $ref_cds_gff = &gff_index("$gff_cds");
 
-open STAT, ">anablast_stat.tsv" or die $!;
-print STAT "Min_bitscore\tTotal_peaks\tTotal_CDS\tMin_Top\tTP\tFP\tFN\tSensitivity\tSpecificity\n";
-my %stat;
-for my $top (20..200) {
-	my $print = "no print";
-	if ($top == 20) {
-		$print = "print";
-	}
-	%stat = &sensitivity_specificity($ref_cds_gff, \%peaks, $top, $seq_ref, $print);
-	print STAT "$min_bitscore\t$stat{total}\t$stat{total_cds}\t$top\t$stat{tp}\t$stat{fp}\t$stat{fn}\t$stat{sensitivity}\t$stat{specificity}\n";
-}
-close STAT or die $!;
+# open STAT, ">anablast_stat.tsv" or die $!;
+# print STAT "Min_bitscore\tTotal_peaks\tTotal_CDS\tMin_Top\tTP\tFP\tFN\tSensitivity\tSpecificity\n";
+# my %stat;
+# for my $top (20..200) {
+# 	my $print = "no print";
+# 	if ($top == 20) {
+# 		$print = "print";
+# 	}
+# 	%stat = &sensitivity_specificity($ref_cds_gff, \%peaks, $top, $seq_ref, $print);
+# 	print STAT "$min_bitscore\t$stat{total}\t$stat{total_cds}\t$top\t$stat{tp}\t$stat{fp}\t$stat{fn}\t$stat{sensitivity}\t$stat{specificity}\n";
+# }
+# close STAT or die $!;
 
 exit;
